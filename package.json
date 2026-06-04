@@ -1,0 +1,43 @@
+{
+  "name": "electron-blocks",
+  "version": "0.0.1",
+  "description": "Timeblocks desktop shell — loads the react-web-calendar build in the main process",
+  "main": "main.js",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "start:dev": "WEB_DEV_SERVER=http://localhost:3000 electron .",
+    "sync:web": "rm -rf web-build && cp -R ../react-web-calendar/build web-build",
+    "dist": "npm run sync:web && electron-builder",
+    "dist:mac": "npm run sync:web && electron-builder --mac",
+    "dist:win": "npm run sync:web && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.timeblocks.blocks",
+    "productName": "Timeblocks Blocks",
+    "files": [
+      "main.js",
+      "preload.js",
+      "web-build/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "@eneris/push-receiver": "^4.3.1",
+    "firebase-admin": "^13.10.0"
+  }
+}

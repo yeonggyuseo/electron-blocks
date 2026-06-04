@@ -1,0 +1,31 @@
+const { contextBridge, ipcRenderer } = require('electron')
+
+// Context-isolated bridge between the web app and the Electron shell.
+// 푸시는 메인 프로세스가 수신 → 여기서 토큰/메시지를 웹앱에 전달한다.
+contextBridge.exposeInMainWorld('electronAPI', {
+  platform: process.platform,
+
+  // 메인 프로세스가 발급한 FCM 토큰을 가져온다(백엔드 디바이스 등록에 사용).
+  getFcmToken: () => ipcRenderer.invoke('get-fcm-token'),
+
+  // 토큰이 (재)발급될 때 호출. 반환값은 구독 해제 함수.
+  onFcmToken: (cb) => {
+    const listener = (_e, token) => cb(token)
+    ipcRenderer.on('fcm-token', listener)
+    return () => ipcRenderer.removeListener('fcm-token', listener)
+  },
+
+  // 푸시 메시지 수신 시 호출. 반환값은 구독 해제 함수.
+  onPushMessage: (cb) => {
+    const listener = (_e, message) => cb(message)
+    ipcRenderer.on('push-message', listener)
+    return () => ipcRenderer.removeListener('push-message', listener)
+  },
+
+  // 알림 클릭 시 호출. 반환값은 구독 해제 함수.
+  onPushClick: (cb) => {
+    const listener = (_e, message) => cb(message)
+    ipcRenderer.on('push-click', listener)
+    return () => ipcRenderer.removeListener('push-click', listener)
+  },
+})

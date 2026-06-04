@@ -71,11 +71,9 @@ async function startPush({ mode = 'production', onToken, onMessage, onClick } = 
     vapidKey,
     credentials,
     persistentIds: persisted.persistentIds || [],
-    // 내부 프로토콜(연결/로그인/하트비트/수신)을 터미널에 노출 → 수동 전송 없이 진단.
-    debug: process.env.PUSH_DEBUG !== '0',
+    // 내부 MCS 프로토콜 로그는 기본 OFF. 진단이 필요할 때만 PUSH_DEBUG=1 로 켠다.
+    debug: process.env.PUSH_DEBUG === '1',
   })
-
-  instance.onReady(() => console.log('[push] ready (MCS 연결·로그인 완료, 수신 대기)'))
 
   const persist = () =>
     writeJSON(storePath, { credentials, persistentIds: instance.persistentIds })
@@ -83,7 +81,6 @@ async function startPush({ mode = 'production', onToken, onMessage, onClick } = 
   instance.onCredentialsChanged(({ newCredentials }) => {
     credentials = newCredentials
     persist()
-    console.log('[push] credentials updated. token:\n' + newCredentials.fcm.token)
     onToken?.(newCredentials.fcm.token)
   })
 
@@ -94,12 +91,10 @@ async function startPush({ mode = 'production', onToken, onMessage, onClick } = 
     const title = n.title || data.title || 'TimeBlocks'
     const body = n.body || data.body || ''
     console.log('[push] message received:', title, '/', body)
-    console.log('[push] full message:', JSON.stringify(message))
     if (ElectronNotification.isSupported()) {
       const notif = new ElectronNotification({ title, body })
       // 클릭은 로컬에서 처리(외부 URL로 보내지 않음) — 로컬 창에 포커스.
       notif.on('click', () => {
-        console.log('[push] notification clicked')
         onClick?.(message)
       })
       notif.show()

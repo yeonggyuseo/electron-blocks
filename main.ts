@@ -309,8 +309,16 @@ app.whenReady().then(async () => {
       }
     })
     // 위젯 본문 클릭 → 풀 캘린더 창만 연다(생성 다이얼로그 없음).
-    ipcMain.handle('open-full-calendar', () => {
-      openFullCalendar()
+    // dateMs가 오면 풀 창을 그 월로 이동시킨다(별도 창이라 기본은 오늘 월).
+    ipcMain.handle('open-full-calendar', (_e, dateMs?: number) => {
+      const win = openFullCalendar()
+      if (dateMs == null) return
+      const send = () => win.webContents.send('navigate-to-date', dateMs)
+      if (win.webContents.isLoading()) {
+        win.webContents.once('did-finish-load', send)
+      } else {
+        send()
+      }
     })
     startPush({
       mode: fcmMode,

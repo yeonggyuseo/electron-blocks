@@ -12,7 +12,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFullCalendarCreate: () => ipcRenderer.invoke('open-full-calendar-create'),
 
   // 위젯 본문 클릭 → 풀 캘린더 창만 연다(생성 다이얼로그 없음).
-  openFullCalendar: () => ipcRenderer.invoke('open-full-calendar'),
+  // dateMs: 위젯이 보던 월. 풀 창을 같은 월로 이동시키는 데 쓴다.
+  openFullCalendar: (dateMs?: number) =>
+    ipcRenderer.invoke('open-full-calendar', dateMs),
+
+  // 풀 캘린더가 '해당 월로 이동' 신호를 수신. 반환값은 구독 해제 함수.
+  onNavigateToDate: (cb: (dateMs: number) => void) => {
+    const listener = (_e: IpcRendererEvent, dateMs: number) => cb(dateMs)
+    ipcRenderer.on('navigate-to-date', listener)
+    return () => ipcRenderer.removeListener('navigate-to-date', listener)
+  },
 
   // 풀 캘린더가 생성 다이얼로그 열기 신호를 수신. 반환값은 구독 해제 함수.
   onOpenCreateDialog: (cb: () => void) => {

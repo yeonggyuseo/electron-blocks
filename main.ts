@@ -188,6 +188,9 @@ function createWidgetWindow(url: string): BrowserWindow {
     skipTaskbar: true,
     alwaysOnTop: true,
     roundedCorners: true,
+    // 투명 프레임리스 창의 그림자가 검은 외곽선처럼 보이므로 끈다.
+    hasShadow: false,
+    backgroundColor: '#00000000',
     // 로그인 상태를 알기 전엔 숨김. 렌더러가 로그인 확인 시 show-widget으로 표시.
     show: false,
     webPreferences: {

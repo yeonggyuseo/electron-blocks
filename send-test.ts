@@ -9,9 +9,9 @@
 // 사용:
 //   node send-test.js <fcmToken> [title] [body]
 
-const admin = require('firebase-admin')
-const path = require('node:path')
-const fs = require('node:fs')
+import admin from 'firebase-admin'
+import path from 'node:path'
+import fs from 'node:fs'
 
 const [, , token, title = '테스트 알림', body = 'electron-blocks 수신 테스트'] = process.argv
 
@@ -27,7 +27,9 @@ if (!fs.existsSync(saPath)) {
   process.exit(1)
 }
 
-admin.initializeApp({ credential: admin.credential.cert(require(saPath)) })
+admin.initializeApp({
+  credential: admin.credential.cert(JSON.parse(fs.readFileSync(saPath, 'utf8'))),
+})
 
 admin
   .messaging()

@@ -6,12 +6,14 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "start": "electron .",
-    "start:dev": "WEB_DEV_SERVER=http://localhost:3000 electron .",
+    "build": "tsc",
+    "tc": "tsc --noEmit",
+    "start": "npm run build && electron .",
+    "start:dev": "npm run build && WEB_DEV_SERVER=http://localhost:3000 electron .",
     "sync:web": "rm -rf web-build && cp -R ../react-web-calendar/build web-build",
-    "dist": "npm run sync:web && electron-builder",
-    "dist:mac": "npm run sync:web && electron-builder --mac",
-    "dist:win": "npm run sync:web && electron-builder --win"
+    "dist": "npm run build && npm run sync:web && electron-builder",
+    "dist:mac": "npm run build && npm run sync:web && electron-builder --mac",
+    "dist:win": "npm run build && npm run sync:web && electron-builder --win"
   },
   "build": {
     "appId": "com.timeblocks.blocks",
@@ -19,6 +21,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "push.js",
       "web-build/**/*"
     ],
     "directories": {
@@ -33,8 +36,10 @@
     }
   },
   "devDependencies": {
+    "@types/node": "^20.19.41",
     "electron": "^31.0.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@eneris/push-receiver": "^4.3.1",

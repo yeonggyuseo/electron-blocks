@@ -1,14 +1,39 @@
-const { app, BrowserWindow, ipcMain, session, Tray, Menu, nativeImage } = require('electron')
-const http = require('node:http')
-const path = require('node:path')
-const fs = require('node:fs')
-const { startPush } = require('./push')
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  session,
+  Tray,
+  Menu,
+  nativeImage,
+} from 'electron'
+import http from 'node:http'
+import path from 'node:path'
+import fs from 'node:fs'
+import { startPush } from './push'
 
-let latestFcmToken = null
-let widgetWindow = null
-let tray = null
+// app.isQuitting는 표준 속성이 아니지만(트레이 종료 vs 창 닫기 구분용 플래그) 코드 전반에서 쓴다.
+declare global {
+  namespace Electron {
+    interface App {
+      isQuitting?: boolean
+    }
+  }
+}
 
-function broadcast(channel, payload) {
+type WidgetState = {
+  x: number
+  y: number
+  width: number
+  height: number
+  alwaysOnTop?: boolean
+}
+
+let latestFcmToken: string | null = null
+let widgetWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+
+function broadcast(channel: string, payload: unknown): void {
   BrowserWindow.getAllWindows().forEach((w) => {
     if (!w.isDestroyed()) w.webContents.send(channel, payload)
   })
@@ -24,18 +49,18 @@ const DEV_SERVER_URL = process.env.WEB_DEV_SERVER || ''
 
 // Resolve the react-web-calendar build directory.
 // Priority: env override -> bundled web-build (packaged) -> sibling repo build (dev).
-function resolveWebBuildDir() {
+function resolveWebBuildDir(): string | null {
   const candidates = [
     process.env.WEB_BUILD_DIR,
     path.join(__dirname, 'web-build'),
     path.join(__dirname, '..', 'react-web-calendar', 'build'),
-  ].filter(Boolean)
+  ].filter((dir): dir is string => Boolean(dir))
   return candidates.find((dir) => fs.existsSync(path.join(dir, 'index.html'))) || null
 }
 
 const WEB_BUILD_DIR = resolveWebBuildDir()
 
-const MIME = {
+const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.mjs': 'text/javascript; charset=utf-8',
@@ -59,12 +84,12 @@ const MIME = {
 
 // Minimal static server for the SPA build, with index.html fallback so
 // BrowserRouter routes resolve. Bound to localhost only.
-function startStaticServer(rootDir, port) {
+function startStaticServer(rootDir: string, port: number): Promise<http.Server> {
   const root = path.resolve(rootDir)
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
       try {
-        const pathname = decodeURIComponent(new URL(req.url, ORIGIN).pathname)
+        const pathname = decodeURIComponent(new URL(req.url || '/', ORIGIN).pathname)
         let filePath = path.join(root, pathname)
         if (!filePath.startsWith(root)) {
           res.writeHead(403)
@@ -86,7 +111,7 @@ function startStaticServer(rootDir, port) {
   })
 }
 
-function createMainWindow(url) {
+function createMainWindow(url: string): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -128,17 +153,17 @@ function createMainWindow(url) {
 }
 
 // 위젯 위치/크기/항상위 상태를 userData에 영속화한다(레포 밖이라 별도 gitignore 불필요).
-function widgetStateFile() {
+function widgetStateFile(): string {
   return path.join(app.getPath('userData'), 'widget-state.json')
 }
-function loadWidgetState() {
+function loadWidgetState(): WidgetState | null {
   try {
     return JSON.parse(fs.readFileSync(widgetStateFile(), 'utf8'))
   } catch {
     return null
   }
 }
-function saveWidgetState(win) {
+function saveWidgetState(win: BrowserWindow): void {
   try {
     const b = win.getBounds()
     fs.writeFileSync(
@@ -150,7 +175,7 @@ function saveWidgetState(win) {
   }
 }
 
-function createWidgetWindow(url) {
+function createWidgetWindow(url: string): BrowserWindow {
   const saved = loadWidgetState()
   const win = new BrowserWindow({
     ...(saved
@@ -172,14 +197,16 @@ function createWidgetWindow(url) {
   win.loadURL(url)
   // 반투명은 웹 측에서 배경만 rgba로 처리(글자·블록은 또렷하게 유지). 창 opacity는 쓰지 않는다.
   // 이동/리사이즈/닫힘 시 위치·크기 저장.
-  ;['moved', 'resized'].forEach((ev) => win.on(ev, () => saveWidgetState(win)))
-  win.on('close', () => saveWidgetState(win))
+  const persistState = () => saveWidgetState(win)
+  win.on('moved', persistState)
+  win.on('resized', persistState)
+  win.on('close', persistState)
   if (isDev) win.webContents.openDevTools({ mode: 'detach' })
   return win
 }
 
 // 풀 캘린더 창을 새로 만들거나, 이미 있으면 앞으로 가져온다.
-function openFullCalendar() {
+function openFullCalendar(): BrowserWindow {
   const existing = BrowserWindow.getAllWindows().find((w) => w !== widgetWindow)
   if (existing) {
     existing.show()
@@ -190,7 +217,7 @@ function openFullCalendar() {
 }
 
 // 트레이(메뉴바) 아이콘 + 컨텍스트 메뉴. 아이콘 파일이 없으면 빈 이미지로 폴백.
-function createTray() {
+function createTray(): void {
   const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'))
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
   tray.setToolTip('TimeBlocks')
@@ -217,7 +244,7 @@ function createTray() {
   tray.setContextMenu(menu)
 }
 
-function showMissingBuildWindow() {
+function showMissingBuildWindow(): void {
   const win = new BrowserWindow({ width: 720, height: 420 })
   const html =
     '<body style="font:14px -apple-system,sans-serif;padding:32px;color:#333">' +
@@ -250,7 +277,7 @@ app.whenReady().then(async () => {
     // 2) Serve the build on the trusted localhost origin.
     try {
       await startStaticServer(WEB_BUILD_DIR, PORT)
-    } catch (err) {
+    } catch (err: any) {
       if (err.code === 'EADDRINUSE') {
         // Port already serving (web dev server or a prior instance) — load it as-is.
         console.warn(`[electron-blocks] port ${PORT} in use; loading existing server at ${ORIGIN}`)

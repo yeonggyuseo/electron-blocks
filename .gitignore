@@ -4,3 +4,10 @@ web-build/
 *.log
 .DS_Store
 service-account.json
+
+# TypeScript 컴파일 산출물 (소스는 *.ts, 제자리 컴파일)
+/main.js
+/preload.js
+/push.js
+/send-test.js
+*.tsbuildinfo

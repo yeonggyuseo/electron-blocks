@@ -1,17 +1,24 @@
-const { app, Notification: ElectronNotification } = require('electron')
-const fs = require('node:fs')
-const path = require('node:path')
-const PushReceiver = require('@eneris/push-receiver').default
+import { app, Notification as ElectronNotification } from 'electron'
+import fs from 'node:fs'
+import path from 'node:path'
+import PushReceiver from '@eneris/push-receiver'
 
 // Electron 렌더러엔 웹푸시 백엔드가 없어 firebase 웹 SDK의 getToken()이 실패한다.
 // 대신 메인 프로세스(Node)에서 FCM의 MCS 프로토콜로 직접 토큰을 발급받고
 // 소켓으로 푸시 메시지를 수신한다. 발급된 토큰은 정상 FCM 토큰이라, 백엔드는
 // 기존과 동일하게 그 토큰으로 푸시를 보내면 된다.
 
+export interface StartPushOptions {
+  mode?: string
+  onToken?: (token: string) => void
+  onMessage?: (message: any) => void
+  onClick?: (message: any) => void
+}
+
 // 웹 레포의 .env.<mode> 에서 VITE_FIREBASE_* 값을 런타임에 읽는다(같은 프로젝트로 등록).
-function loadFirebaseEnv(mode) {
+function loadFirebaseEnv(mode: string): Record<string, string> {
   const envPath = path.join(__dirname, '..', 'react-web-calendar', `.env.${mode}`)
-  const out = {}
+  const out: Record<string, string> = {}
   if (!fs.existsSync(envPath)) return out
   for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
     const m = line.match(/^\s*(VITE_FIREBASE_[A-Z_]+)\s*=\s*(.*?)\s*$/)
@@ -25,7 +32,7 @@ function loadFirebaseEnv(mode) {
   return out
 }
 
-function readJSON(p) {
+function readJSON(p: string): any {
   try {
     return JSON.parse(fs.readFileSync(p, 'utf8'))
   } catch {
@@ -33,7 +40,7 @@ function readJSON(p) {
   }
 }
 
-function writeJSON(p, data) {
+function writeJSON(p: string, data: unknown): void {
   try {
     fs.writeFileSync(p, JSON.stringify(data, null, 2))
   } catch (e) {
@@ -42,7 +49,12 @@ function writeJSON(p, data) {
 }
 
 // FCM 수신 시작. onToken/onMessage 콜백으로 결과를 바깥(IPC)에 넘긴다.
-async function startPush({ mode = 'production', onToken, onMessage, onClick } = {}) {
+export async function startPush({
+  mode = 'production',
+  onToken,
+  onMessage,
+  onClick,
+}: StartPushOptions = {}) {
   const env = loadFirebaseEnv(mode)
   const firebase = {
     apiKey: env.VITE_FIREBASE_API_KEY,
@@ -86,8 +98,8 @@ async function startPush({ mode = 'production', onToken, onMessage, onClick } = 
 
   instance.onNotification(({ message }) => {
     persist()
-    const n = message.notification || {}
-    const data = message.data || {}
+    const n: any = message.notification || {}
+    const data: any = message.data || {}
     const title = n.title || data.title || 'TimeBlocks'
     const body = n.body || data.body || ''
     console.log('[push] message received:', title, '/', body)
@@ -105,8 +117,6 @@ async function startPush({ mode = 'production', onToken, onMessage, onClick } = 
   await instance.connect()
   const token = instance.fcmToken
   console.log(`[push] connected (mode=${mode}). FCM token:\n${token}`)
-  onToken?.(token)
+  if (token) onToken?.(token)
   return { instance, token }
 }
-
-module.exports = { startPush }

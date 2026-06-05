@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron')
+import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 
 // Context-isolated bridge between the web app and the Electron shell.
 // 푸시는 메인 프로세스가 수신 → 여기서 토큰/메시지를 웹앱에 전달한다.
@@ -15,29 +15,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFullCalendar: () => ipcRenderer.invoke('open-full-calendar'),
 
   // 풀 캘린더가 생성 다이얼로그 열기 신호를 수신. 반환값은 구독 해제 함수.
-  onOpenCreateDialog: (cb) => {
+  onOpenCreateDialog: (cb: () => void) => {
     const l = () => cb()
     ipcRenderer.on('open-create-dialog', l)
     return () => ipcRenderer.removeListener('open-create-dialog', l)
   },
 
   // 토큰이 (재)발급될 때 호출. 반환값은 구독 해제 함수.
-  onFcmToken: (cb) => {
-    const listener = (_e, token) => cb(token)
+  onFcmToken: (cb: (token: string) => void) => {
+    const listener = (_e: IpcRendererEvent, token: string) => cb(token)
     ipcRenderer.on('fcm-token', listener)
     return () => ipcRenderer.removeListener('fcm-token', listener)
   },
 
   // 푸시 메시지 수신 시 호출. 반환값은 구독 해제 함수.
-  onPushMessage: (cb) => {
-    const listener = (_e, message) => cb(message)
+  onPushMessage: (cb: (message: unknown) => void) => {
+    const listener = (_e: IpcRendererEvent, message: unknown) => cb(message)
     ipcRenderer.on('push-message', listener)
     return () => ipcRenderer.removeListener('push-message', listener)
   },
 
   // 알림 클릭 시 호출. 반환값은 구독 해제 함수.
-  onPushClick: (cb) => {
-    const listener = (_e, message) => cb(message)
+  onPushClick: (cb: (message: unknown) => void) => {
+    const listener = (_e: IpcRendererEvent, message: unknown) => cb(message)
     ipcRenderer.on('push-click', listener)
     return () => ipcRenderer.removeListener('push-click', listener)
   },

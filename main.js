@@ -5,6 +5,7 @@ const fs = require('node:fs')
 const { startPush } = require('./push')
 
 let latestFcmToken = null
+let widgetWindow = null
 
 function broadcast(channel, payload) {
   BrowserWindow.getAllWindows().forEach((w) => {
@@ -117,6 +118,28 @@ function createMainWindow(url) {
   return win
 }
 
+function createWidgetWindow(url) {
+  const win = new BrowserWindow({
+    width: 360,
+    height: 420,
+    frame: false,
+    transparent: true,
+    resizable: true,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    roundedCorners: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  })
+  win.loadURL(url)
+  if (isDev) win.webContents.openDevTools({ mode: 'detach' })
+  return win
+}
+
 function showMissingBuildWindow() {
   const win = new BrowserWindow({ width: 720, height: 420 })
   const html =
@@ -142,7 +165,8 @@ app.whenReady().then(async () => {
 
   // 1) External dev server explicitly requested.
   if (DEV_SERVER_URL) {
-    createMainWindow(DEV_SERVER_URL)
+    // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '풀 캘린더 열기'에서 연다.
+    widgetWindow = createWidgetWindow(`${DEV_SERVER_URL.replace(/\/$/, '')}/widget`)
   } else if (!WEB_BUILD_DIR) {
     showMissingBuildWindow()
   } else {
@@ -157,7 +181,8 @@ app.whenReady().then(async () => {
         throw err
       }
     }
-    createMainWindow(`${ORIGIN}/`)
+    // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '풀 캘린더 열기'에서 연다.
+    widgetWindow = createWidgetWindow(`${ORIGIN}/widget`)
   }
 
   // 메인 프로세스 FCM 푸시 시작 (웹 SDK 푸시는 Electron에서 불가하므로 이쪽이 정식 경로).
@@ -187,8 +212,14 @@ app.whenReady().then(async () => {
   }
 
   app.on('activate', () => {
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+      widgetWindow.show()
+      widgetWindow.focus()
+      return
+    }
     if (BrowserWindow.getAllWindows().length === 0 && (DEV_SERVER_URL || WEB_BUILD_DIR)) {
-      createMainWindow(DEV_SERVER_URL || `${ORIGIN}/`)
+      const widgetUrl = DEV_SERVER_URL ? `${DEV_SERVER_URL.replace(/\/$/, '')}/widget` : `${ORIGIN}/widget`
+      widgetWindow = createWidgetWindow(widgetUrl)
     }
   })
 })

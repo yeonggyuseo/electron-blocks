@@ -28,11 +28,11 @@
       "output": "dist"
     },
     "mac": {
-      "target": "dmg",
+      "target": "zip",
       "category": "public.app-category.productivity"
     },
     "win": {
-      "target": "nsis"
+      "target": "zip"
     }
   },
   "devDependencies": {

@@ -149,7 +149,7 @@ function createMainWindow(url: string): BrowserWindow {
     }
   })
 
-  if (isDev) win.webContents.openDevTools({ mode: 'detach' })
+  if (process.env.OPEN_DEVTOOLS === '1') win.webContents.openDevTools({ mode: 'detach' })
   return win
 }
 
@@ -202,7 +202,7 @@ function createWidgetWindow(url: string): BrowserWindow {
   win.on('moved', persistState)
   win.on('resized', persistState)
   win.on('close', persistState)
-  if (isDev) win.webContents.openDevTools({ mode: 'detach' })
+  if (process.env.OPEN_DEVTOOLS === '1') win.webContents.openDevTools({ mode: 'detach' })
   return win
 }
 

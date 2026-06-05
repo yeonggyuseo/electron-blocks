@@ -127,10 +127,35 @@ function createMainWindow(url) {
   return win
 }
 
+// 위젯 위치/크기/항상위 상태를 userData에 영속화한다(레포 밖이라 별도 gitignore 불필요).
+function widgetStateFile() {
+  return path.join(app.getPath('userData'), 'widget-state.json')
+}
+function loadWidgetState() {
+  try {
+    return JSON.parse(fs.readFileSync(widgetStateFile(), 'utf8'))
+  } catch {
+    return null
+  }
+}
+function saveWidgetState(win) {
+  try {
+    const b = win.getBounds()
+    fs.writeFileSync(
+      widgetStateFile(),
+      JSON.stringify({ x: b.x, y: b.y, width: b.width, height: b.height, alwaysOnTop: win.isAlwaysOnTop() }),
+    )
+  } catch (e) {
+    console.error('[widget] state persist failed', e)
+  }
+}
+
 function createWidgetWindow(url) {
+  const saved = loadWidgetState()
   const win = new BrowserWindow({
-    width: 360,
-    height: 420,
+    ...(saved
+      ? { x: saved.x, y: saved.y, width: saved.width, height: saved.height }
+      : { width: 360, height: 420 }),
     frame: false,
     transparent: true,
     resizable: true,
@@ -145,6 +170,9 @@ function createWidgetWindow(url) {
     },
   })
   win.loadURL(url)
+  // 이동/리사이즈/닫힘 시 위치·크기 저장.
+  ;['moved', 'resized'].forEach((ev) => win.on(ev, () => saveWidgetState(win)))
+  win.on('close', () => saveWidgetState(win))
   if (isDev) win.webContents.openDevTools({ mode: 'detach' })
   return win
 }
@@ -235,6 +263,9 @@ app.whenReady().then(async () => {
 
   // 트레이 상주(위젯 표시/풀 캘린더/종료). 위젯이 떠 있는 정상 경로에서만 생성.
   if (widgetWindow) createTray()
+
+  // 로그인 시 자동 시작(프로덕션만). dev에서는 자동시작 등록하지 않는다.
+  if (!isDev) app.setLoginItemSettings({ openAtLogin: true })
 
   // 메인 프로세스 FCM 푸시 시작 (웹 SDK 푸시는 Electron에서 불가하므로 이쪽이 정식 경로).
   if (DEV_SERVER_URL || WEB_BUILD_DIR) {

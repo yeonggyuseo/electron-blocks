@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 위젯에서 일정 생성 요청 → 메인이 풀 캘린더 창을 열고 생성 다이얼로그를 띄운다.
   openFullCalendarCreate: () => ipcRenderer.invoke('open-full-calendar-create'),
 
+  // 풀 캘린더 헤더의 위젯 버튼 → 위젯 창 보이기/숨기기 토글.
+  toggleWidget: () => ipcRenderer.invoke('toggle-widget'),
+
   // 위젯 본문 클릭 → 풀 캘린더 창만 연다(생성 다이얼로그 없음).
   // dateMs: 위젯이 보던 월. 풀 창을 같은 월로 이동시키는 데 쓴다.
   openFullCalendar: (dateMs?: number) =>

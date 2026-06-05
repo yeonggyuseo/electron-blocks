@@ -299,6 +299,16 @@ app.whenReady().then(async () => {
   if (DEV_SERVER_URL || WEB_BUILD_DIR) {
     const fcmMode = process.env.FCM_MODE || (DEV_SERVER_URL ? 'development' : 'production')
     ipcMain.handle('get-fcm-token', () => latestFcmToken)
+    // 풀 캘린더 헤더의 위젯 버튼 → 위젯 창 보이기/숨기기 토글.
+    ipcMain.handle('toggle-widget', () => {
+      if (!widgetWindow || widgetWindow.isDestroyed()) return
+      if (widgetWindow.isVisible()) {
+        widgetWindow.hide()
+      } else {
+        widgetWindow.show()
+        widgetWindow.focus()
+      }
+    })
     // 위젯의 '일정 생성' → 풀 캘린더 창을 열고, 로드 완료 후 생성 다이얼로그 신호 전달.
     ipcMain.handle('open-full-calendar-create', () => {
       const win = openFullCalendar()

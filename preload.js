@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 위젯에서 일정 생성 요청 → 메인이 풀 캘린더 창을 열고 생성 다이얼로그를 띄운다.
   openFullCalendarCreate: () => ipcRenderer.invoke('open-full-calendar-create'),
 
+  // 위젯 본문 클릭 → 풀 캘린더 창만 연다(생성 다이얼로그 없음).
+  openFullCalendar: () => ipcRenderer.invoke('open-full-calendar'),
+
   // 풀 캘린더가 생성 다이얼로그 열기 신호를 수신. 반환값은 구독 해제 함수.
   onOpenCreateDialog: (cb) => {
     const l = () => cb()

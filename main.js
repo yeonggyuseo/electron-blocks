@@ -158,7 +158,7 @@ function createWidgetWindow(url) {
       : { width: 360, height: 420 }),
     frame: false,
     transparent: true,
-    resizable: true,
+    resizable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
     roundedCorners: true,
@@ -279,6 +279,10 @@ app.whenReady().then(async () => {
       } else {
         win.webContents.send('open-create-dialog')
       }
+    })
+    // 위젯 본문 클릭 → 풀 캘린더 창만 연다(생성 다이얼로그 없음).
+    ipcMain.handle('open-full-calendar', () => {
+      openFullCalendar()
     })
     startPush({
       mode: fcmMode,

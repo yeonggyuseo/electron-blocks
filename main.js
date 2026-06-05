@@ -170,6 +170,8 @@ function createWidgetWindow(url) {
     },
   })
   win.loadURL(url)
+  // 위젯 전체를 약간 반투명하게(90% 불투명). 값만 바꾸면 농도 조절 가능.
+  win.setOpacity(0.9)
   // 이동/리사이즈/닫힘 시 위치·크기 저장.
   ;['moved', 'resized'].forEach((ev) => win.on(ev, () => saveWidgetState(win)))
   win.on('close', () => saveWidgetState(win))

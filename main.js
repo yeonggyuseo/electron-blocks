@@ -115,6 +115,14 @@ function createMainWindow(url) {
     console.error('[preload-error]', file, err)
   })
 
+  // 풀 캘린더 창을 닫으면 종료가 아니라 숨김(트레이에서 다시 연다). 진짜 종료 시엔 통과.
+  win.on('close', (e) => {
+    if (!app.isQuitting) {
+      e.preventDefault()
+      win.hide()
+    }
+  })
+
   if (isDev) win.webContents.openDevTools({ mode: 'detach' })
   return win
 }
@@ -267,7 +275,10 @@ app.whenReady().then(async () => {
   })
 })
 
-// macOS keeps the app alive when all windows close (standard convention).
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  // 위젯/트레이 상주: 창을 다 닫아도 quit하지 않는다. 종료는 트레이 '종료'로만.
+})
+
+app.on('before-quit', () => {
+  app.isQuitting = true
 })

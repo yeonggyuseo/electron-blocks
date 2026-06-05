@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron')
+const { app, BrowserWindow, ipcMain, session, Tray, Menu, nativeImage } = require('electron')
 const http = require('node:http')
 const path = require('node:path')
 const fs = require('node:fs')
@@ -6,6 +6,7 @@ const { startPush } = require('./push')
 
 let latestFcmToken = null
 let widgetWindow = null
+let tray = null
 
 function broadcast(channel, payload) {
   BrowserWindow.getAllWindows().forEach((w) => {
@@ -140,6 +141,45 @@ function createWidgetWindow(url) {
   return win
 }
 
+// 풀 캘린더 창을 새로 만들거나, 이미 있으면 앞으로 가져온다.
+function openFullCalendar() {
+  const existing = BrowserWindow.getAllWindows().find((w) => w !== widgetWindow)
+  if (existing) {
+    existing.show()
+    existing.focus()
+    return existing
+  }
+  return createMainWindow(`${ORIGIN}/`)
+}
+
+// 트레이(메뉴바) 아이콘 + 컨텍스트 메뉴. 아이콘 파일이 없으면 빈 이미지로 폴백.
+function createTray() {
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'))
+  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
+  tray.setToolTip('TimeBlocks')
+  const menu = Menu.buildFromTemplate([
+    {
+      label: '위젯 보이기',
+      click: () => {
+        if (widgetWindow) {
+          widgetWindow.show()
+          widgetWindow.focus()
+        }
+      },
+    },
+    { label: '풀 캘린더 열기', click: () => openFullCalendar() },
+    { type: 'separator' },
+    {
+      label: '종료',
+      click: () => {
+        app.isQuitting = true
+        app.quit()
+      },
+    },
+  ])
+  tray.setContextMenu(menu)
+}
+
 function showMissingBuildWindow() {
   const win = new BrowserWindow({ width: 720, height: 420 })
   const html =
@@ -184,6 +224,9 @@ app.whenReady().then(async () => {
     // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '풀 캘린더 열기'에서 연다.
     widgetWindow = createWidgetWindow(`${ORIGIN}/widget`)
   }
+
+  // 트레이 상주(위젯 표시/풀 캘린더/종료). 위젯이 떠 있는 정상 경로에서만 생성.
+  if (widgetWindow) createTray()
 
   // 메인 프로세스 FCM 푸시 시작 (웹 SDK 푸시는 Electron에서 불가하므로 이쪽이 정식 경로).
   if (DEV_SERVER_URL || WEB_BUILD_DIR) {

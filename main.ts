@@ -188,6 +188,8 @@ function createWidgetWindow(url: string): BrowserWindow {
     skipTaskbar: true,
     alwaysOnTop: true,
     roundedCorners: true,
+    // 로그인 상태를 알기 전엔 숨김. 렌더러가 로그인 확인 시 show-widget으로 표시.
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -302,6 +304,19 @@ app.whenReady().then(async () => {
   if (DEV_SERVER_URL || WEB_BUILD_DIR) {
     const fcmMode = process.env.FCM_MODE || (DEV_SERVER_URL ? 'development' : 'production')
     ipcMain.handle('get-fcm-token', () => latestFcmToken)
+    // 위젯 렌더러가 로그인 확인 시 호출 → 위젯 창 표시.
+    ipcMain.handle('show-widget', () => {
+      if (!widgetWindow || widgetWindow.isDestroyed()) {
+        if (widgetUrl) widgetWindow = createWidgetWindow(widgetUrl)
+      }
+      if (widgetWindow && !widgetWindow.isDestroyed()) {
+        widgetWindow.show()
+      }
+    })
+    // 위젯 렌더러가 로그아웃 감지 시 호출 → 위젯 창 숨김.
+    ipcMain.handle('hide-widget', () => {
+      if (widgetWindow && !widgetWindow.isDestroyed()) widgetWindow.hide()
+    })
     // 풀 캘린더 헤더의 위젯 버튼 → 위젯 창 보이기/숨기기 토글.
     ipcMain.handle('toggle-widget', () => {
       // Cmd+W로 닫혀 파괴됐으면 다시 만든다.

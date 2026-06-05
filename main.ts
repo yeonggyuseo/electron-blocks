@@ -31,6 +31,7 @@ type WidgetState = {
 
 let latestFcmToken: string | null = null
 let widgetWindow: BrowserWindow | null = null
+let widgetUrl = '' // 위젯 URL 보관 — Cmd+W로 닫혀 파괴된 뒤 토글로 재생성할 때 사용
 let tray: Tray | null = null
 
 function broadcast(channel: string, payload: unknown): void {
@@ -270,7 +271,8 @@ app.whenReady().then(async () => {
   // 1) External dev server explicitly requested.
   if (DEV_SERVER_URL) {
     // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '풀 캘린더 열기'에서 연다.
-    widgetWindow = createWidgetWindow(`${DEV_SERVER_URL.replace(/\/$/, '')}/widget`)
+    widgetUrl = `${DEV_SERVER_URL.replace(/\/$/, '')}/widget`
+    widgetWindow = createWidgetWindow(widgetUrl)
   } else if (!WEB_BUILD_DIR) {
     showMissingBuildWindow()
   } else {
@@ -286,7 +288,8 @@ app.whenReady().then(async () => {
       }
     }
     // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '풀 캘린더 열기'에서 연다.
-    widgetWindow = createWidgetWindow(`${ORIGIN}/widget`)
+    widgetUrl = `${ORIGIN}/widget`
+    widgetWindow = createWidgetWindow(widgetUrl)
   }
 
   // 트레이 상주(위젯 표시/풀 캘린더/종료). 위젯이 떠 있는 정상 경로에서만 생성.
@@ -301,6 +304,11 @@ app.whenReady().then(async () => {
     ipcMain.handle('get-fcm-token', () => latestFcmToken)
     // 풀 캘린더 헤더의 위젯 버튼 → 위젯 창 보이기/숨기기 토글.
     ipcMain.handle('toggle-widget', () => {
+      // Cmd+W로 닫혀 파괴됐으면 다시 만든다.
+      if ((!widgetWindow || widgetWindow.isDestroyed()) && widgetUrl) {
+        widgetWindow = createWidgetWindow(widgetUrl)
+        return
+      }
       if (!widgetWindow || widgetWindow.isDestroyed()) return
       if (widgetWindow.isVisible()) {
         widgetWindow.hide()

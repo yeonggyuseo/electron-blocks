@@ -186,7 +186,10 @@ function createWidgetWindow(url: string): BrowserWindow {
     transparent: true,
     resizable: false,
     skipTaskbar: true,
-    alwaysOnTop: true,
+    // 위젯이 다른 앱/창 위에 항상 떠 있지 않도록 함(일반 창 레벨).
+    // macOS에서 '바탕화면 레벨 고정 + 클릭 가능'은 동시 불가(type:'desktop'은 입력을 못 받음)이라,
+    // alwaysOnTop을 끄고 일반 창처럼 스택되게 한다.
+    alwaysOnTop: false,
     roundedCorners: true,
     // 투명 프레임리스 창의 그림자가 검은 외곽선처럼 보이므로 끈다.
     hasShadow: false,

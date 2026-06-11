@@ -11,13 +11,13 @@
     "start": "npm run build && electron .",
     "start:dev": "npm run build && WEB_DEV_SERVER=http://localhost:3000 electron .",
     "sync:web": "rm -rf web-build && cp -R ../react-web-calendar/build web-build",
-    "dist": "npm run build && npm run sync:web && electron-builder",
-    "dist:mac": "npm run build && npm run sync:web && electron-builder --mac",
-    "dist:win": "npm run build && npm run sync:web && electron-builder --win"
+    "dist": "npm run build && npm run sync:web && electron-builder --mac --arm64 --x64 && electron-builder --win --x64",
+    "dist:mac": "npm run build && npm run sync:web && electron-builder --mac --arm64 --x64",
+    "dist:win": "npm run build && npm run sync:web && electron-builder --win --x64"
   },
   "build": {
     "appId": "com.timeblocks.blocks",
-    "productName": "Timeblocks Blocks",
+    "productName": "TimeBlocks",
     "files": [
       "main.js",
       "preload.js",
@@ -29,11 +29,11 @@
       "output": "dist"
     },
     "mac": {
-      "target": "zip",
+      "target": ["dmg", "zip"],
       "category": "public.app-category.productivity"
     },
     "win": {
-      "target": "zip"
+      "target": ["nsis"]
     }
   },
   "devDependencies": {

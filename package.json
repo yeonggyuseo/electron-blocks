@@ -10,7 +10,8 @@
     "tc": "tsc --noEmit",
     "start": "npm run build && electron .",
     "start:dev": "npm run build && WEB_DEV_SERVER=http://localhost:3000 electron .",
-    "sync:web": "rm -rf web-build && cp -R ../react-web-calendar/build web-build",
+    "build:web": "npm --prefix ../react-web-calendar run build",
+    "sync:web": "npm run build:web && rm -rf web-build && cp -R ../react-web-calendar/build web-build",
     "dist": "npm run build && npm run sync:web && electron-builder --mac --arm64 --x64 && electron-builder --win --x64",
     "dist:mac": "npm run build && npm run sync:web && electron-builder --mac --arm64 --x64",
     "dist:win": "npm run build && npm run sync:web && electron-builder --win --x64"

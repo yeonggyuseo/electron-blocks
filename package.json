@@ -22,6 +22,7 @@
       "main.js",
       "preload.js",
       "push.js",
+      "assets/**/*",
       "web-build/**/*"
     ],
     "directories": {

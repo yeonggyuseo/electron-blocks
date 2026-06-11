@@ -237,7 +237,7 @@ function createTray(): void {
         }
       },
     },
-    { label: '풀 캘린더 열기', click: () => openFullCalendar() },
+    { label: '캘린더 열기', click: () => openFullCalendar() },
     { type: 'separator' },
     {
       label: '종료',
@@ -275,7 +275,7 @@ app.whenReady().then(async () => {
 
   // 1) External dev server explicitly requested.
   if (DEV_SERVER_URL) {
-    // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '풀 캘린더 열기'에서 연다.
+    // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '캘린더 열기'에서 연다.
     widgetUrl = `${DEV_SERVER_URL.replace(/\/$/, '')}/widget`
     widgetWindow = createWidgetWindow(widgetUrl)
   } else if (!WEB_BUILD_DIR) {
@@ -292,7 +292,7 @@ app.whenReady().then(async () => {
         throw err
       }
     }
-    // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '풀 캘린더 열기'에서 연다.
+    // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '캘린더 열기'에서 연다.
     widgetUrl = `${ORIGIN}/widget`
     widgetWindow = createWidgetWindow(widgetUrl)
   }

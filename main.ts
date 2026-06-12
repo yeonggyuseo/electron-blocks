@@ -48,6 +48,14 @@ const ORIGIN = `http://localhost:${PORT}`
 // Optional: skip the built-in server and load an already-running server instead.
 const DEV_SERVER_URL = process.env.WEB_DEV_SERVER || ''
 
+// Chromium은 localhost를 ::1(IPv6)로 먼저 풀 수 있어, 같은 포트의 다른 서버(예: ::1에만
+// 바인딩된 vite dev 서버)가 떠 있으면 내장 서버(127.0.0.1) 대신 그쪽 콘텐츠를 로드한다.
+// Origin은 CORS/OAuth 신뢰 때문에 http://localhost:PORT 문자열을 유지해야 하므로,
+// URL은 그대로 두고 호스트 해석만 127.0.0.1로 고정한다. (외부 dev 서버 지정 시 제외)
+if (!DEV_SERVER_URL) {
+  app.commandLine.appendSwitch('host-resolver-rules', 'MAP localhost 127.0.0.1')
+}
+
 // Resolve the react-web-calendar build directory.
 // Priority: env override -> bundled web-build (packaged) -> sibling repo build (dev).
 function resolveWebBuildDir(): string | null {
@@ -112,6 +120,21 @@ function startStaticServer(rootDir: string, port: number): Promise<http.Server> 
   })
 }
 
+// 렌더러 프로세스가 죽으면(예: Chromium 폰트 스택 크래시 — 2026-06-11 크래시 리포트)
+// 창이 흰 빈 껍데기로 남는다. 사망을 감지해 재로드하되, 즉시 재크래시하는 경우의
+// 무한 루프는 10초 간격 제한으로 방지한다.
+function attachRendererRecovery(win: BrowserWindow): void {
+  let lastReload = 0
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[renderer GONE]', details)
+    if (details.reason === 'clean-exit') return
+    const now = Date.now()
+    if (now - lastReload < 10_000) return
+    lastReload = now
+    if (!win.isDestroyed()) win.webContents.reload()
+  })
+}
+
 function createMainWindow(url: string): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
@@ -131,9 +154,7 @@ function createMainWindow(url: string): BrowserWindow {
   wc.on('console-message', (_e, level, message, line, sourceId) => {
     console.log(`[renderer L${level}] ${message}  (${sourceId}:${line})`)
   })
-  wc.on('render-process-gone', (_e, details) => {
-    console.error('[renderer GONE]', details)
-  })
+  attachRendererRecovery(win)
   wc.on('did-fail-load', (_e, code, desc, failedUrl) => {
     console.error('[did-fail-load]', code, desc, failedUrl)
   })
@@ -204,6 +225,7 @@ function createWidgetWindow(url: string): BrowserWindow {
     },
   })
   win.loadURL(url)
+  attachRendererRecovery(win)
   // 반투명은 웹 측에서 배경만 rgba로 처리(글자·블록은 또렷하게 유지). 창 opacity는 쓰지 않는다.
   // 이동/리사이즈/닫힘 시 위치·크기 저장.
   const persistState = () => saveWidgetState(win)
@@ -240,7 +262,7 @@ function createTray(): void {
         }
       },
     },
-    { label: '캘린더 열기', click: () => openFullCalendar() },
+    { label: '캘린더 보이기', click: () => openFullCalendar() },
     { type: 'separator' },
     {
       label: '종료',
@@ -278,7 +300,7 @@ app.whenReady().then(async () => {
 
   // 1) External dev server explicitly requested.
   if (DEV_SERVER_URL) {
-    // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '캘린더 열기'에서 연다.
+    // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '캘린더 보이기'에서 연다.
     widgetUrl = `${DEV_SERVER_URL.replace(/\/$/, '')}/widget`
     widgetWindow = createWidgetWindow(widgetUrl)
   } else if (!WEB_BUILD_DIR) {
@@ -295,7 +317,7 @@ app.whenReady().then(async () => {
         throw err
       }
     }
-    // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '캘린더 열기'에서 연다.
+    // 위젯이 기본(주) 창. 풀 캘린더는 트레이 '캘린더 보이기'에서 연다.
     widgetUrl = `${ORIGIN}/widget`
     widgetWindow = createWidgetWindow(widgetUrl)
   }
@@ -381,16 +403,13 @@ app.whenReady().then(async () => {
     }).catch((e) => console.error('[push] start failed:', e))
   }
 
+  // 독 클릭/Cmd+Tab 등 앱 활성화: 보이는 창이 하나도 없을 때만 풀 캘린더를 연다(macOS 관례).
+  // 위젯을 무조건 show하면 사용자가 일부러 숨긴 위젯이 앱 활성화 때마다 부활하고,
+  // 보이는 창이 있을 때도 열면 위젯 클릭(=앱 활성화)만으로 풀창이 튀어나온다.
+  // 로그아웃 상태에서도 이 경로로 풀창(/signin 리다이렉트)에 도달한다.
   app.on('activate', () => {
-    if (widgetWindow && !widgetWindow.isDestroyed()) {
-      widgetWindow.show()
-      widgetWindow.focus()
-      return
-    }
-    if (BrowserWindow.getAllWindows().length === 0 && (DEV_SERVER_URL || WEB_BUILD_DIR)) {
-      const widgetUrl = DEV_SERVER_URL ? `${DEV_SERVER_URL.replace(/\/$/, '')}/widget` : `${ORIGIN}/widget`
-      widgetWindow = createWidgetWindow(widgetUrl)
-    }
+    const anyVisible = BrowserWindow.getAllWindows().some((w) => w.isVisible())
+    if (!anyVisible && (DEV_SERVER_URL || WEB_BUILD_DIR)) openFullCalendar()
   })
 })
 

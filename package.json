@@ -10,10 +10,14 @@
     "tc": "tsc --noEmit",
     "start": "npm run compile && electron .",
     "start:dev": "npm run compile && WEB_DEV_SERVER=http://localhost:3000 electron .",
-    "sync:web": "npm --prefix ../react-web-calendar run build:dev && rm -rf web-build && cp -R ../react-web-calendar/build web-build",
+    "sync:web": "npm --prefix ../react-web-calendar run build:electron && rm -rf web-build && cp -R ../react-web-calendar/build web-build",
+    "sync:web:dev": "npm --prefix ../react-web-calendar run build:dev && rm -rf web-build && cp -R ../react-web-calendar/build web-build",
     "build": "npm run compile && npm run sync:web && electron-builder --mac && electron-builder --win",
+    "build:dev": "npm run compile && npm run sync:web:dev && electron-builder --mac && electron-builder --win",
     "build:mac": "npm run compile && npm run sync:web && electron-builder --mac",
-    "build:win": "npm run compile && npm run sync:web && electron-builder --win"
+    "build:mac:dev": "npm run compile && npm run sync:web:dev && electron-builder --mac",
+    "build:win": "npm run compile && npm run sync:web && electron-builder --win",
+    "build:win:dev": "npm run compile && npm run sync:web:dev && electron-builder --win"
   },
   "build": {
     "appId": "com.timeblocks.blocks",
@@ -51,7 +55,8 @@
       ]
     },
     "nsis": {
-      "artifactName": "${productName} Setup ${version}-${arch}.${ext}"
+      "artifactName": "${productName} Setup ${version}-${arch}.${ext}",
+      "perMachine": false
     }
   },
   "devDependencies": {

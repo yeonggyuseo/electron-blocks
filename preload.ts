@@ -15,8 +15,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showWidget: () => ipcRenderer.invoke('show-widget'),
   hideWidget: () => ipcRenderer.invoke('hide-widget'),
 
-  // 풀 캘린더 헤더의 위젯 버튼 → 위젯 창 보이기/숨기기 토글.
-  toggleWidget: () => ipcRenderer.invoke('toggle-widget'),
+  // 위젯 고정 토글 → 새 상태(boolean) 반환. 초기 상태 조회는 getAlwaysOnTop.
+  toggleAlwaysOnTop: () => ipcRenderer.invoke('toggle-always-on-top'),
+  getAlwaysOnTop: () => ipcRenderer.invoke('get-always-on-top'),
 
   // 위젯 본문 클릭 → 풀 캘린더 창만 연다(생성 다이얼로그 없음).
   // dateMs: 위젯이 보던 월. 풀 창을 같은 월로 이동시키는 데 쓴다.

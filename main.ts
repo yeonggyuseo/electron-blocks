@@ -201,8 +201,8 @@ function createWidgetWindow(url: string): BrowserWindow {
   const saved = loadWidgetState()
   const win = new BrowserWindow({
     ...(saved
-      ? { x: saved.x, y: saved.y, width: saved.width, height: saved.height }
-      : { width: 360, height: 420 }),
+      ? { x: saved.x, y: saved.y, width: Math.max(saved.width, 400), height: saved.height }
+      : { width: 400, height: 420 }),
     frame: false,
     transparent: true,
     resizable: false,
@@ -212,7 +212,8 @@ function createWidgetWindow(url: string): BrowserWindow {
     // alwaysOnTop을 끄고 일반 창처럼 스택되게 한다.
     alwaysOnTop: false,
     roundedCorners: true,
-    // 투명 프레임리스 창의 그림자가 검은 외곽선처럼 보이므로 끈다.
+    // 투명 프레임리스 창의 시스템 그림자는 검은 외곽선처럼 보이므로 끈다.
+    // 대신 웹 측 CSS box-shadow로 부드러운 그림자를 구현한다.
     hasShadow: false,
     backgroundColor: '#00000000',
     // 로그인 상태를 알기 전엔 숨김. 렌더러가 로그인 확인 시 show-widget으로 표시.
@@ -345,20 +346,18 @@ app.whenReady().then(async () => {
     ipcMain.handle('hide-widget', () => {
       if (widgetWindow && !widgetWindow.isDestroyed()) widgetWindow.hide()
     })
-    // 풀 캘린더 헤더의 위젯 버튼 → 위젯 창 보이기/숨기기 토글.
-    ipcMain.handle('toggle-widget', () => {
-      // Cmd+W로 닫혀 파괴됐으면 다시 만든다.
-      if ((!widgetWindow || widgetWindow.isDestroyed()) && widgetUrl) {
-        widgetWindow = createWidgetWindow(widgetUrl)
-        return
-      }
-      if (!widgetWindow || widgetWindow.isDestroyed()) return
-      if (widgetWindow.isVisible()) {
-        widgetWindow.hide()
-      } else {
-        widgetWindow.show()
-        widgetWindow.focus()
-      }
+    // 위젯 고정(alwaysOnTop) 토글. 변경된 상태를 반환해 렌더러가 버튼 UI를 갱신한다.
+    ipcMain.handle('toggle-always-on-top', () => {
+      if (!widgetWindow || widgetWindow.isDestroyed()) return false
+      const next = !widgetWindow.isAlwaysOnTop()
+      widgetWindow.setAlwaysOnTop(next)
+      saveWidgetState(widgetWindow)
+      return next
+    })
+    // 현재 고정 상태 조회 — 렌더러 초기 마운트 시 버튼 상태 동기화에 사용.
+    ipcMain.handle('get-always-on-top', () => {
+      if (!widgetWindow || widgetWindow.isDestroyed()) return false
+      return widgetWindow.isAlwaysOnTop()
     })
     // 위젯의 '일정 생성' → 풀 캘린더 창을 열고, 로드 완료 후 생성 다이얼로그 신호 전달.
     ipcMain.handle('open-full-calendar-create', () => {

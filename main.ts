@@ -380,6 +380,16 @@ app.whenReady().then(async () => {
         send()
       }
     })
+    // 한 창(풀 캘린더/위젯)에서 데이터가 바뀌면 → 발신 창을 제외한 나머지 창에 'data-changed'
+    // 전파. 받은 창은 전체 재동기화(resyncAllRequest)를 돈다. 발신자를 제외해 자기 자신
+    // 재동기화→재발신 루프를 막는다.
+    ipcMain.handle('notify-data-changed', (e) => {
+      BrowserWindow.getAllWindows().forEach((w) => {
+        if (!w.isDestroyed() && w.webContents !== e.sender) {
+          w.webContents.send('data-changed')
+        }
+      })
+    })
     startPush({
       mode: fcmMode,
       onToken: (t) => {

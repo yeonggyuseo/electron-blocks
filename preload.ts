@@ -58,4 +58,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('push-click', listener)
     return () => ipcRenderer.removeListener('push-click', listener)
   },
+
+  // 이 창에서 데이터가 바뀌었음을 메인에 알린다 → 메인이 "다른" 창들에 'data-changed' 전파.
+  // (예: 풀 캘린더에서 일정 생성/설정 변경 → 위젯이 전체 재동기화)
+  notifyDataChanged: () => ipcRenderer.invoke('notify-data-changed'),
+
+  // 다른 창의 데이터 변경 신호 수신. 반환값은 구독 해제 함수.
+  onDataChanged: (cb: () => void) => {
+    const l = () => cb()
+    ipcRenderer.on('data-changed', l)
+    return () => ipcRenderer.removeListener('data-changed', l)
+  },
 })

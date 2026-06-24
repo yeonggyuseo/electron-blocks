@@ -135,6 +135,16 @@ function attachRendererRecovery(win: BrowserWindow): void {
   })
 }
 
+// Windows 로그오프/재시작/강제 종료(session-end는 BrowserWindow 이벤트). 트레이 상주라
+// 그냥 두면 창이 hide된 채 OS가 프로세스를 강제 종료한다. isQuitting을 세워 창 close가
+// hide로 가로채이지 않게 하고(위젯은 close에서 위치·크기를 저장) graceful quit 한다.
+function quitOnSessionEnd(win: BrowserWindow): void {
+  win.on('session-end', () => {
+    app.isQuitting = true
+    app.quit()
+  })
+}
+
 function createMainWindow(url: string): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
@@ -155,6 +165,7 @@ function createMainWindow(url: string): BrowserWindow {
     console.log(`[renderer L${level}] ${message}  (${sourceId}:${line})`)
   })
   attachRendererRecovery(win)
+  quitOnSessionEnd(win)
   wc.on('did-fail-load', (_e, code, desc, failedUrl) => {
     console.error('[did-fail-load]', code, desc, failedUrl)
   })
@@ -227,6 +238,7 @@ function createWidgetWindow(url: string): BrowserWindow {
   })
   win.loadURL(url)
   attachRendererRecovery(win)
+  quitOnSessionEnd(win)
   // 반투명은 웹 측에서 배경만 rgba로 처리(글자·블록은 또렷하게 유지). 창 opacity는 쓰지 않는다.
   // 이동/리사이즈/닫힘 시 위치·크기 저장.
   const persistState = () => saveWidgetState(win)
@@ -248,6 +260,18 @@ function openFullCalendar(): BrowserWindow {
   return createMainWindow(`${ORIGIN}/`)
 }
 
+// 위젯(기본 창)을 앞으로 가져온다. 닫혀서 파괴됐으면 재생성한다.
+// 트레이 '위젯 보이기' · 로그인 시 show-widget IPC · 아이콘 더블클릭(second-instance) 공용.
+function showWidget(): void {
+  if (!widgetWindow || widgetWindow.isDestroyed()) {
+    if (widgetUrl) widgetWindow = createWidgetWindow(widgetUrl)
+  }
+  if (widgetWindow && !widgetWindow.isDestroyed()) {
+    widgetWindow.show()
+    widgetWindow.focus()
+  }
+}
+
 // 트레이(메뉴바) 아이콘 + 컨텍스트 메뉴. 아이콘 파일이 없으면 빈 이미지로 폴백.
 function createTray(): void {
   const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'))
@@ -256,12 +280,7 @@ function createTray(): void {
   const menu = Menu.buildFromTemplate([
     {
       label: '위젯 보이기',
-      click: () => {
-        if (widgetWindow) {
-          widgetWindow.show()
-          widgetWindow.focus()
-        }
-      },
+      click: () => showWidget(),
     },
     { label: '캘린더 보이기', click: () => openFullCalendar() },
     { type: 'separator' },
@@ -290,7 +309,24 @@ function showMissingBuildWindow(): void {
   win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
 }
 
+// 단일 인스턴스 보장: openAtLogin 자동 실행 등으로 이미 떠 있는데 사용자가 아이콘을
+// 또 클릭하면, 두 번째 인스턴스는 스스로 종료하고 기존 인스턴스가 창을 앞으로 가져온다.
+// (락이 없으면 위젯/트레이/푸시 토큰이 중복으로 뜬다.)
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) app.quit()
+
+// 아이콘 더블클릭 등으로 두 번째 인스턴스 실행 시도 → 첫 인스턴스가 받는다.
+// 메인 창인 '풀 캘린더'를 띄운다(이미 있으면 앞으로). Windows엔 macOS의 'activate'가
+// 없어, 더블클릭으로 풀 캘린더를 여는 경로가 여기뿐이다. (위젯은 로그인 플로우/트레이로 표시)
+// 락 도입 전엔 두 번째 인스턴스가 통째로 떠서 화면이 보였는데, 이제 그 인스턴스는 즉시
+// 종료되므로 첫 인스턴스가 여기서 직접 메인 창을 띄워야 한다.
+app.on('second-instance', () => {
+  if (DEV_SERVER_URL || WEB_BUILD_DIR) openFullCalendar()
+})
+
 app.whenReady().then(async () => {
+  // 락을 못 얻은 두 번째 인스턴스는 창을 만들지 않고 그대로 종료한다.
+  if (!gotSingleInstanceLock) return
   // Electron엔 "알림 허용?" 프롬프트 UI가 없어 Notification.requestPermission()이
   // granted를 안 돌려줄 수 있다. 그러면 useDeviceManager의 granted 분기가 안 돌아
   // 디바이스 등록(saveDeviceRequest)이 누락된다. → 권한을 자동 허용해 granted 보장.
@@ -326,6 +362,11 @@ app.whenReady().then(async () => {
   // 트레이 상주(위젯 표시/풀 캘린더/종료). 위젯이 떠 있는 정상 경로에서만 생성.
   if (widgetWindow) createTray()
 
+  // 시작 시 메인 창(풀 캘린더)을 항상 띄운다 — 최초 수동 실행·OS 로그인 자동시작 공통.
+  // 위젯은 로그인 확인 시에만 표시되는 기존 흐름(show-widget) 유지: 앱 미로그인 시 위젯은
+  // 계속 숨김, 로그인 시 위젯도 함께 표시된다. (풀 캘린더는 미로그인 시 /signin으로 리다이렉트)
+  if (widgetWindow) openFullCalendar()
+
   // 로그인 시 자동 시작(프로덕션만). dev에서는 자동시작 등록하지 않는다.
   if (!isDev) app.setLoginItemSettings({ openAtLogin: true })
 
@@ -334,14 +375,7 @@ app.whenReady().then(async () => {
     const fcmMode = process.env.FCM_MODE || (DEV_SERVER_URL ? 'development' : 'production')
     ipcMain.handle('get-fcm-token', () => latestFcmToken)
     // 위젯 렌더러가 로그인 확인 시 호출 → 위젯 창 표시.
-    ipcMain.handle('show-widget', () => {
-      if (!widgetWindow || widgetWindow.isDestroyed()) {
-        if (widgetUrl) widgetWindow = createWidgetWindow(widgetUrl)
-      }
-      if (widgetWindow && !widgetWindow.isDestroyed()) {
-        widgetWindow.show()
-      }
-    })
+    ipcMain.handle('show-widget', () => showWidget())
     // 위젯 렌더러가 로그아웃 감지 시 호출 → 위젯 창 숨김.
     ipcMain.handle('hide-widget', () => {
       if (widgetWindow && !widgetWindow.isDestroyed()) widgetWindow.hide()

@@ -273,8 +273,10 @@ function showWidget(): void {
 }
 
 // 트레이(메뉴바) 아이콘 + 컨텍스트 메뉴. 아이콘 파일이 없으면 빈 이미지로 폴백.
+// 컬러 로고(trayColor.png, 투명)를 Template로 쓰지 않고 그대로 로드 → win/mac 모두 컬러.
+// (단색 trayTemplate.png는 win에서 틴트가 없어 회색으로 보이던 문제 해결. @2x 자동 로드.)
 function createTray(): void {
-  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'))
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayColor.png'))
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
   tray.setToolTip('TimeBlocks')
   const menu = Menu.buildFromTemplate([

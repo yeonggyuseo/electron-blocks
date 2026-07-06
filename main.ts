@@ -156,6 +156,9 @@ function createMainWindow(url: string): BrowserWindow {
       sandbox: true,
     },
   })
+  // 윈도우 데스크톱앱 상단 네이티브 메뉴바(파일/편집/보기…) 숨김.
+  // removeMenu는 Windows/Linux 창 메뉴바를 제거하고 macOS에선 no-op(앱 메뉴 유지).
+  win.removeMenu()
   win.loadURL(url)
 
   // Surface renderer console / crashes / load failures in the terminal so the
